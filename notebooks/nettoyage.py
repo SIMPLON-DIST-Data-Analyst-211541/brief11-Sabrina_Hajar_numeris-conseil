@@ -21,3 +21,12 @@ df["GDP"] = pd.to_numeric(df["GDP"], errors="coerce")
 print(df.info())
 print(df.isnull().sum())
 df.to_csv("data/world-data-2023-clean.csv", index=False)
+
+df["GDP"] = (
+    df["GDP"]
+        .astype(str)
+        .str.replace("$", "", regex=False)
+        .str.replace(",", "", regex=False)
+)
+
+df["GDP"] = pd.to_numeric(df["GDP"], errors="coerce")
