@@ -1,0 +1,43 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Chargement du jeu de données
+df = pd.read_csv("data/world-data-2023-clean.csv")
+
+# Variables numériques à représenter
+variables = [
+    "GDP",
+    "Population",
+    "Life expectancy",
+    "Unemployment rate",
+    "Birth rate",
+    "Fertility rate",
+    "Infant mortality",
+    "Maternal mortality ratio",
+    "CPI Change (%)"
+]
+
+# Histogrammes
+for variable in variables:
+
+    # Vérifie que la colonne existe
+    if variable not in df.columns:
+        print(f"Colonne introuvable : {variable}")
+        continue
+
+    plt.figure(figsize=(8, 5))
+
+    sns.histplot(
+        data=df,
+        x=variable,
+        bins=30,
+        kde=True
+    )
+
+    plt.title(f"Distribution de {variable}")
+    plt.xlabel(variable)
+    plt.ylabel("Nombre de pays")
+
+    plt.tight_layout()
+    plt.show()
