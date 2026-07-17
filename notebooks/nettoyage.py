@@ -1,101 +1,95 @@
+# Installer les bibliothèques
+# Dans le terminal de VS Code : pip install pandas, matplotlib, seaborn, numpy
+
+# Charger le dataset
 from pathlib import Path
 import pandas as pd
 
-# Racine du projet
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Lecture du fichier CSV
 csv_path = BASE_DIR / "data" / "world-data-2023.csv"
-
-print("Lecture du fichier :", csv_path)
 
 df = pd.read_csv(csv_path)
 
-df_clean = df.copy()
+# Aperçu
+print(df.head())
+print(df.info())
 
-# ==========================
-# 2. Nettoyage des noms de colonnes
-# ==========================
-df_clean.columns = (
-    df_clean.columns
-    .str.replace("\n", " ", regex=False)
-    .str.lower()
-    .str.strip()
-    .str.replace(r"[^a-z0-9]+", "_", regex=True)
-    .str.strip("_")
+# Vérifier les valeurs manquantes
+
+print(df.isnull().sum())
+
+# Renommer les colonnes
+
+df.columns = (
+    df.columns
+      .str.strip()
+      .str.replace("\n", "_")
+      .str.replace(" ", "_")
+      .str.replace("(", "", regex=False)
+      .str.replace(")", "", regex=False)
+      .str.replace("%", "pct", regex=False)
+      .str.replace("/", "_", regex=False)
 )
 
-# ==========================
-# 3. Suppression des espaces
-# ==========================
-for col in df_clean.select_dtypes(include=["object"]).columns:
-    df_clean[col] = df_clean[col].str.strip()
+print(df.columns)
 
-# ==========================
-# 4. Conversion automatique
-#    des colonnes numériques
-# ==========================
-for col in df_clean.select_dtypes(include=["object"]).columns:
+# Supprimer les doublons
 
-    temp = (
-        df_clean[col]
-        .str.replace(",", "", regex=False)
-        .str.replace("$", "", regex=False)
-        .str.replace("%", "", regex=False)
-    )
+df = df.drop_duplicates()
 
-    numeric = pd.to_numeric(temp, errors="coerce")
+# Nettoyer les colonnes numériques
+# Plusieurs colonnes sont au format texte à cause des virgules, $, etc.
 
-    # On convertit seulement si la majorité des valeurs sont numériques
-    if numeric.notna().sum() >= len(df_clean) * 0.5:
-        df_clean[col] = numeric
+cols = [
+    "Density_P_Km2",
+    "Land_AreaKm2",
+    "GDP",
+    "Population",
+    "Co2-Emissions",
+    "Minimum_wage",
+    "Gasoline_Price",
+    "CPI"
+]
 
-# ==========================
-# 5. Remplacement des NaN
-#    uniquement dans les
-#    colonnes numériques
-# ==========================
-numeric_cols = df_clean.select_dtypes(include="number").columns
+for col in cols:
+    if col in df.columns:
+        df[col] = (
+            df[col]
+            .astype(str)
+            .str.replace(",", "", regex=False)
+            .str.replace("$", "", regex=False)
+            .str.strip()
+        )
+        df[col] = pd.to_numeric(df[col], errors="coerce")
 
-df_clean[numeric_cols] = (
-    df_clean[numeric_cols]
-    .fillna(df_clean[numeric_cols].median())
-)
+# Traiter les valeurs manquantes
+# Pour les colonnes numériques :
 
-# ==========================
-# 6. Vérification
-# ==========================
-print(df_clean.info())
+num_cols = df.select_dtypes(include="number").columns
 
-print("\nValeurs manquantes :")
-print(df_clean.isna().sum())
+for col in num_cols:
+    df[col] = df[col].fillna(df[col].median())
 
-print("\nDimensions :", df_clean.shape)
+# Pour les colonnes texte :
 
-# ==========================
-# 7. Sauvegarde
-# ==========================
-df_clean.to_csv("world-data-2023-clean.csv", index=False)
+obj_cols = df.select_dtypes(include="object").columns
 
-print("\nFichier enregistré : world-data-2023-clean.csv")
+for col in obj_cols:
+    df[col] = df[col].fillna("Unknown")
 
-from pathlib import Path
-import pandas as pd
+# Vérifier les types
 
-# Racine du projet
-BASE_DIR = Path(__file__).resolve().parent.parent
+print(df.dtypes)
 
-# Lecture du fichier brut
-df = pd.read_csv(BASE_DIR / "data" / "world-data-2023.csv")
+# Sauvegarder le dataset nettoyé
 
-# Copie
-df_clean = df.copy()
+df.to_csv("world-data-2023-clean.csv", index=False)
 
-# ... ton nettoyage ...
+print("Dataset nettoyé enregistré avec succès.")
 
-# Sauvegarde
-output_path = BASE_DIR / "data" / "world-data-2023-clean.csv"
+# Contrôles finaux
 
-df_clean.to_csv(output_path, index=False)
-
-print("Fichier enregistré :", output_path)
+print(df.shape)
+print(df.info())
+print(df.describe())
+print(df.isnull().sum())
