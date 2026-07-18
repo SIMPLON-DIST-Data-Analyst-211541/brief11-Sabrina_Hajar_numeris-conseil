@@ -2,42 +2,44 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Chargement du jeu de données
-df = pd.read_csv("data/world-data-2023-clean.csv")
+from pathlib import Path
 
-# Variables numériques à représenter
+BASE_DIR = Path.cwd()
+
+DATA_PATH = BASE_DIR / "world-data-2023-clean.csv"
+
+df = pd.read_csv(DATA_PATH)
+
+# Conversion de GDP en numérique
+df["GDP"] = (
+    df["GDP"]
+    .astype(str)
+    .str.replace(",", "", regex=False)
+    .str.replace("$", "", regex=False)
+    .str.strip()
+)
+
+df["GDP"] = pd.to_numeric(df["GDP"], errors="coerce")
+
+# Conversion de Population en numérique (par sécurité)
+df["Population"] = pd.to_numeric(df["Population"], errors="coerce")
+
+# Création du PIB par habitant
+df["GDP_per_capita"] = df["GDP"] / df["Population"]
+
 variables = [
-    "GDP",
-    "Population",
-    "Life expectancy",
-    "Unemployment rate",
-    "Birth rate",
-    "Fertility rate",
-    "Infant mortality",
-    "Maternal mortality ratio",
-    "CPI Change (%)"
+    "GDP_per_capita",
+    "Life_expectancy",
+    "Gross_tertiary_education_enrollment_pct",
+    "Physicians_per_thousand",
+    "Infant_mortality",
+    "Urban_population",
+    "Unemployment_rate"
 ]
 
-# Histogrammes
-for variable in variables:
+print(df[variables].dtypes)
+print(df[variables].head())
+print(df[variables].corr())
 
-    # Vérifie que la colonne existe
-    if variable not in df.columns:
-        print(f"Colonne introuvable : {variable}")
-        continue
 
-    plt.figure(figsize=(8, 5))
 
-    sns.histplot(
-        data=df,
-        x=variable,
-        bins=30,
-        kde=True
-    )
-
-    plt.title(f"Distribution de {variable}")
-    plt.xlabel(variable)
-    plt.ylabel("Nombre de pays")
-
-    plt.tight_layout()
-    plt.show()
