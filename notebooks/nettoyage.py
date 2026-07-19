@@ -1,261 +1,90 @@
-# ==========================================================
-# NETTOYAGE DES DONNÉES - WORLD DATA 2023
-# ==========================================================
-
 from pathlib import Path
 import pandas as pd
 
 # ==========================================================
-# Chargement du dataset
+# NETTOYAGE DU DATASET WORLD DATA 2023
 # ==========================================================
 
-# Compatible Jupyter Notebook / Google Colab
-BASE_DIR = Path.cwd()
+# Racine du projet
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Le fichier est normalement dans le dossier data
-csv_path = BASE_DIR / "data" / "world-data-2023.csv"
+# Lecture du fichier brut
+input_path = BASE_DIR / "data" / "world-data-2023.csv"
 
-# Si le dossier data n'existe pas, chercher dans le dossier courant
-if not csv_path.exists():
-    csv_path = BASE_DIR / "world-data-2023.csv"
+print("Lecture du fichier :", input_path)
 
-# Chargement
-df = pd.read_csv(csv_path)
+df = pd.read_csv(input_path)
 
-# ==========================================================
-# CONVERSION DES VARIABLES NUMÉRIQUES
-# ==========================================================
-
-colonnes_numeriques = [
-    "Density_P_Km2",
-    "Agricultural_Land_pct",
-    "Land_AreaKm2",
-    "Armed_Forces_size",
-    "Co2-Emissions",
-    "CPI",
-    "CPI_Change_pct",
-    "Forested_Area_pct",
-    "Gasoline_Price",
-    "GDP",
-    "Gross_primary_education_enrollment_pct",
-    "Gross_tertiary_education_enrollment_pct",
-    "Minimum_wage",
-    "Out_of_pocket_health_expenditure",
-    "Population",
-    "Population:_Labor_force_participation_pct",
-    "Tax_revenue_pct",
-    "Total_tax_rate",
-    "Unemployment_rate",
-    "Urban_population",
-    "Birth_Rate",
-    "Calling_Code",
-    "Fertility_Rate",
-    "Infant_mortality",
-    "Life_expectancy",
-    "Maternal_mortality_ratio",
-    "Physicians_per_thousand",
-    "Latitude",
-    "Longitude"
-]
-
-for col in colonnes_numeriques:
-
-    if col in df.columns:
-
-        df[col] = (
-            df[col]
-            .astype(str)
-            .str.replace("$", "", regex=False)
-            .str.replace(",", "", regex=False)
-            .str.replace("%", "", regex=False)
-            .str.replace("Unknown", "", regex=False)
-            .str.strip()
-        )
-
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-# Remplacer les NaN numériques par la médiane
-
-for col in colonnes_numeriques:
-
-    if col in df.columns:
-
-        df[col] = df[col].fillna(df[col].median())
-
-df["GDP_per_capita"] = df["GDP"] / df["Population"]
+# Copie du DataFrame
+df_clean = df.copy()
 
 # ==========================================================
-# Conversion explicite de la colonne Population
+# 1. Nettoyage des noms de colonnes
 # ==========================================================
 
-if "Population" in df.columns:
-    df["Population"] = (
-        df["Population"]
-        .astype(str)
-        .str.replace(",", "", regex=False)
-    )
-
-    df["Population"] = pd.to_numeric(df["Population"], errors="coerce")
-
-print("Type de Population :", df["Population"].dtype)
-
-# ==========================================================
-# Diagnostic initial
-# ==========================================================
-
-print("=" * 60)
-print("DIAGNOSTIC INITIAL")
-print("=" * 60)
-
-print("Dimensions :", df.shape)
-print("Doublons :", df.duplicated().sum())
-
-print("\nValeurs manquantes :")
-print(df.isnull().sum())
-
-print("\nRésumé statistique :")
-print(df.describe(include="all"))
-
-# ==========================================================
-# Renommage des colonnes
-# ==========================================================
-
-df.columns = (
-    df.columns
-      .str.strip()
-      .str.replace("\n", "_")
-      .str.replace(" ", "_")
-      .str.replace("(", "", regex=False)
-      .str.replace(")", "", regex=False)
-      .str.replace("%", "pct", regex=False)
-      .str.replace("/", "_", regex=False)
+df_clean.columns = (
+    df_clean.columns
+    .str.replace("\n", " ", regex=False)
+    .str.lower()
+    .str.strip()
+    .str.replace(r"[^a-z0-9]+", "_", regex=True)
+    .str.strip("_")
 )
 
 # ==========================================================
-# Suppression des doublons
+# 2. Suppression des espaces
 # ==========================================================
 
-df = df.drop_duplicates()
-
-if "Country" in df.columns:
-    print("\nPays dupliqués :", df["Country"].duplicated().sum())
+for col in df_clean.select_dtypes(include="object").columns:
+    df_clean[col] = df_clean[col].str.strip()
 
 # ==========================================================
-# Nettoyage des colonnes numériques
+# 3. Conversion des colonnes numériques
 # ==========================================================
 
-def nettoyer_numerique(colonne):
+for col in df_clean.select_dtypes(include="object").columns:
 
-    propre = (
-        colonne.astype(str)
+    temp = (
+        df_clean[col]
         .str.replace(",", "", regex=False)
         .str.replace("$", "", regex=False)
         .str.replace("%", "", regex=False)
-        .str.replace("€", "", regex=False)
-        .str.strip()
     )
 
-    return pd.to_numeric(propre, errors="coerce")
+    numeric = pd.to_numeric(temp, errors="coerce")
 
-
-for col in df.columns:
-
-    if df[col].dtype == "object":
-
-        conversion = nettoyer_numerique(df[col])
-
-        # On convertit uniquement si au moins 70 % des valeurs sont numériques
-        if conversion.notna().sum() >= len(df) * 0.70:
-            df[col] = conversion
+    # Conversion uniquement si la majorité des valeurs est numérique
+    if numeric.notna().sum() >= len(df_clean) * 0.5:
+        df_clean[col] = numeric
 
 # ==========================================================
-# Vérification des types
+# 4. Remplacement des valeurs manquantes
 # ==========================================================
 
-print("\nTypes des variables :")
-print(df.dtypes)
+numeric_cols = df_clean.select_dtypes(include="number").columns
+
+df_clean[numeric_cols] = (
+    df_clean[numeric_cols]
+    .fillna(df_clean[numeric_cols].median())
+)
 
 # ==========================================================
-# Traitement des valeurs manquantes
+# 5. Vérifications
 # ==========================================================
 
-# Colonnes numériques
-num_cols = df.select_dtypes(include=["number"]).columns
+print(df_clean.info())
 
-for col in num_cols:
-    df[col] = df[col].fillna(df[col].median())
+print("\nValeurs manquantes :")
+print(df_clean.isna().sum())
 
-# Colonnes texte
-text_cols = df.select_dtypes(include="object").columns
-
-for col in text_cols:
-    df[col] = df[col].str.strip().fillna("Unknown")
+print("\nDimensions :", df_clean.shape)
 
 # ==========================================================
-# Vérification finale des valeurs manquantes
+# 6. Sauvegarde
 # ==========================================================
 
-print("\nValeurs manquantes restantes :")
-print(df.isnull().sum())
+output_path = BASE_DIR / "data" / "world-data-2023-clean.csv"
 
-print("\nTotal :", df.isnull().sum().sum())
+df_clean.to_csv(output_path, index=False)
 
-# ==========================================================
-# Détection des valeurs aberrantes (IQR)
-# ==========================================================
-
-print("\n==============================")
-print("VALEURS ABERRANTES")
-print("==============================")
-
-for col in num_cols:
-
-    Q1 = df[col].quantile(0.25)
-    Q3 = df[col].quantile(0.75)
-
-    IQR = Q3 - Q1
-
-    borne_inf = Q1 - 1.5 * IQR
-    borne_sup = Q3 + 1.5 * IQR
-
-    outliers = df[
-        (df[col] < borne_inf) |
-        (df[col] > borne_sup)
-    ]
-
-    print(f"\n{col}")
-    print(f"Nombre de valeurs aberrantes : {len(outliers)}")
-    print(f"Borne inférieure : {borne_inf:.2f}")
-    print(f"Borne supérieure : {borne_sup:.2f}")
-
-print("\nLes valeurs aberrantes sont conservées car elles représentent des situations réelles de certains pays.")
-
-# ==========================================================
-# Contrôle final
-# ==========================================================
-
-print("\n==============================")
-print("CONTRÔLE FINAL")
-print("==============================")
-
-print(df.shape)
-
-print("\nInformations générales")
-df.info()
-
-print("\nRésumé statistique")
-print(df.describe())
-
-print("\nValeurs manquantes")
-print(df.isnull().sum())
-
-# ==========================================================
-# Sauvegarde
-# ==========================================================
-
-output_path = BASE_DIR / "world-data-2023-clean.csv"
-
-df.to_csv(output_path, index=False)
-
-print("\nDataset nettoyé enregistré avec succès.")
-print("Emplacement :", output_path)
+print("\nFichier enregistré :", output_path)

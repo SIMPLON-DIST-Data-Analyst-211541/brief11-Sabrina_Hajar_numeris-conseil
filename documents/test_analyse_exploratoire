@@ -2,44 +2,30 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from pathlib import Path
-
-BASE_DIR = Path.cwd()
-
-DATA_PATH = BASE_DIR / "world-data-2023-clean.csv"
-
-df = pd.read_csv(DATA_PATH)
-
-# Conversion de GDP en numérique
-df["GDP"] = (
-    df["GDP"]
-    .astype(str)
-    .str.replace(",", "", regex=False)
-    .str.replace("$", "", regex=False)
-    .str.strip()
-)
-
-df["GDP"] = pd.to_numeric(df["GDP"], errors="coerce")
-
-# Conversion de Population en numérique (par sécurité)
-df["Population"] = pd.to_numeric(df["Population"], errors="coerce")
-
-# Création du PIB par habitant
-df["GDP_per_capita"] = df["GDP"] / df["Population"]
-
 variables = [
     "GDP_per_capita",
+    "Population",
     "Life_expectancy",
-    "Gross_tertiary_education_enrollment_pct",
-    "Physicians_per_thousand",
+    "Unemployment_rate",
+    "Birth_Rate",
+    "Fertility_Rate",
     "Infant_mortality",
-    "Urban_population",
-    "Unemployment_rate"
+    "Maternal_mortality_ratio",
+    "CPI_Change_pct"
 ]
 
-print(df[variables].dtypes)
-print(df[variables].head())
-print(df[variables].corr())
+# Charger les données
+df_clean = pd.read_csv("world-data-2023-clean.csv")
 
+# Création de la figure
+fig, axes = plt.subplots(3, 3, figsize=(18, 15))
+axes = axes.flatten()
 
+# Tracé des boxplots
+for i, variable in enumerate(variables):
+    sns.boxplot(y=df_clean[variable], ax=axes[i])
+    axes[i].set_title(variable)
+    axes[i].set_ylabel("")
 
+plt.tight_layout()
+plt.show()

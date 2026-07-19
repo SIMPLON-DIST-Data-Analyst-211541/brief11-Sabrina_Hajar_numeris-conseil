@@ -6,10 +6,28 @@
 # pour un investissement international.
 # ==========================================================
 
-from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
+
+# ==========================================================
+# CREATION DES DOSSIERS DE SORTIE
+# ==========================================================
+
+# Dossier du projet (le parent de notebooks)
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Dossiers des figures
+BOXPLOTS_DIR = BASE_DIR / "figures" / "boxplots"
+HIST_DIR = BASE_DIR / "figures" / "histogrammes"
+CORR_DIR = BASE_DIR / "figures" / "correlations"
+TOP10_DIR = BASE_DIR / "figures" / "top10"
+REGPLOT_DIR = BASE_DIR / "figures" / "relations"
+
+# Création des dossiers s'ils n'existent pas
+for dossier in [BOXPLOTS_DIR, HIST_DIR, CORR_DIR, TOP10_DIR, REGPLOT_DIR]:
+    dossier.mkdir(parents=True, exist_ok=True)
 
 # ==========================================================
 # CONFIGURATION
@@ -22,15 +40,10 @@ plt.rcParams["figure.figsize"] = (10, 6)
 # CHARGEMENT DU DATASET
 # ==========================================================
 
-BASE_DIR = Path.cwd()
-
 DATA_PATH = BASE_DIR / "world-data-2023-clean.csv"
 
 if not DATA_PATH.exists():
     DATA_PATH = BASE_DIR / "data" / "world-data-2023-clean.csv"
-
-FIGURES_PATH = BASE_DIR / "figures"
-FIGURES_PATH.mkdir(exist_ok=True)
 
 df = pd.read_csv(DATA_PATH)
 
@@ -137,10 +150,9 @@ for col in variables:
 
     plt.tight_layout()
 
-    plt.savefig(
-        FIGURES_PATH / f"hist_{col}.png",
-        dpi=300
-    )
+    plt.savefig(HIST_DIR / f"hist_{col}.png",
+            dpi=300,
+            bbox_inches="tight")
 
     plt.show()
 
@@ -148,21 +160,44 @@ for col in variables:
 # BOXPLOTS
 # ==========================================================
 
-for col in variables:
+variables = [
+    "GDP_per_capita",
+    "Population",
+    "Life_expectancy",
+    "Unemployment_rate",
+    "Birth_Rate",
+    "Fertility_Rate",
+    "Infant_mortality",
+    "Maternal_mortality_ratio",
+    "CPI_Change_pct"
+]
 
-    plt.figure(figsize=(8,3))
+print(df.head())
+print(df.columns)
 
-    sns.boxplot(x=df[col])
+# Vérifier que toutes les colonnes existent
+colonnes_existantes = [col for col in variables if col in df.columns]
+colonnes_manquantes = [col for col in variables if col not in df.columns]
 
-    plt.title(f"Valeurs aberrantes - {col}")
+if colonnes_manquantes:
+    print("Colonnes manquantes :", colonnes_manquantes)
+
+if colonnes_existantes:
+    fig, axes = plt.subplots(3, 3, figsize=(18, 15))
+    axes = axes.flatten()
+
+    for i, variable in enumerate(colonnes_existantes):
+        sns.boxplot(y=df[variable], ax=axes[i], color="skyblue")
+        axes[i].set_title(variable)
+        axes[i].set_ylabel("")
+
+    # Supprimer les axes inutilisés si certaines colonnes manquent
+    for j in range(len(colonnes_existantes), len(axes)):
+        fig.delaxes(axes[j])
 
     plt.tight_layout()
-
-    plt.savefig(
-        FIGURES_PATH / f"boxplot_{col}.png",
-        dpi=300
-    )
-
+    plt.savefig(BOXPLOTS_DIR / "boxplots_principaux_indicateurs.png",
+            dpi=300, bbox_inches="tight")
     plt.show()
 
 # ==========================================================
@@ -203,7 +238,7 @@ plt.tight_layout()
 
 # Enregistrer la figure AVANT de l'afficher
 plt.savefig(
-    FIGURES_PATH / "correlation_matrix.png",
+    CORR_DIR / "correlation_matrix.png",
     dpi=300,
     bbox_inches="tight"
 )
@@ -216,16 +251,37 @@ plt.show()
 
 print("\nCorrélations avec le PIB par habitant\n")
 
-print(
+correlations = (
     corr["GDP_per_capita"]
-    .sort_values(ascending=False)
+    .drop("GDP_per_capita")      # On retire le PIB corrélé avec lui-même (=1)
+    .sort_values(key=abs, ascending=False)
 )
 
-print(
-    corr["GDP_per_capita"]
-    .sort_values(ascending=False)
-)
+print(correlations)
 
+print("\n" + "=" * 70)
+print("SYNTHÈSE MÉTIER")
+print("=" * 70)
+
+for variable, valeur in correlations.items():
+
+    if valeur >= 0.70:
+        interpretation = "Très forte corrélation positive"
+
+    elif valeur >= 0.40:
+        interpretation = "Corrélation positive"
+
+    elif valeur <= -0.70:
+        interpretation = "Très forte corrélation négative"
+
+    elif valeur <= -0.40:
+        interpretation = "Corrélation négative"
+
+    else:
+        interpretation = "Corrélation faible"
+
+    print(f"{variable:<45} {valeur:>6.2f}   {interpretation}")
+    
 # ==========================================================
 # PIB vs ESPÉRANCE DE VIE
 # ==========================================================
@@ -251,8 +307,9 @@ plt.title("Relation entre le PIB par habitant et l'espérance de vie")
 plt.tight_layout()
 
 plt.savefig(
-    FIGURES_PATH / "gdp_life_expectancy.png",
-    dpi=300
+    REGPLOT_DIR / "gdp_life_expectancy.png",
+    dpi=300,
+    bbox_inches="tight"
 )
 
 plt.show()
@@ -278,9 +335,10 @@ if {"GDP_per_capita","Gross_tertiary_education_enrollment_pct"}.issubset(df.colu
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "gdp_education.png",
-        dpi=300
-    )
+        REGPLOT_DIR / "gdp_education.png",
+        dpi=300,
+        bbox_inches="tight"
+)
 
     plt.show()
 
@@ -305,8 +363,9 @@ if {"GDP_per_capita","Physicians_per_thousand"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "gdp_physicians.png",
-        dpi=300
+        REGPLOT_DIR / "gdp_physicians.png",
+        dpi=300,
+        bbox_inches="tight"
     )
 
     plt.show()
@@ -332,8 +391,9 @@ if {"GDP_per_capita","Infant_mortality"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "gdp_infant_mortality.png",
-        dpi=300
+        REGPLOT_DIR / "gdp_infant_mortality.png",
+        dpi=300,
+        bbox_inches="tight"
     )
 
     plt.show()
@@ -359,8 +419,9 @@ if {"GDP_per_capita","Urban_population"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "gdp_urban_population.png",
-        dpi=300
+        REGPLOT_DIR / "gdp_urban_population.png",
+        dpi=300,
+        bbox_inches="tight"
     )
 
     plt.show()
@@ -386,8 +447,9 @@ if {"GDP_per_capita","Unemployment_rate"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "gdp_unemployment.png",
-        dpi=300
+        REGPLOT_DIR / "gdp_unemployment.png",
+        dpi=300,
+        bbox_inches="tight"
     )
 
     plt.show()
@@ -413,9 +475,10 @@ if {"Country","GDP"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "top10_gdp.png",
-        dpi=300
-    )
+    TOP10_DIR / "top10_gdp.png",
+    dpi=300,
+    bbox_inches="tight"
+)
 
     plt.show()
 
@@ -440,8 +503,9 @@ if {"Country","Life_expectancy"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "top10_life_expectancy.png",
-        dpi=300
+        TOP10_DIR / "top10_life_expectancy.png",
+        dpi=300,
+        bbox_inches="tight"
     )
 
     plt.show()
@@ -470,8 +534,9 @@ if {"Country","Gross_tertiary_education_enrollment_pct"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "top10_education.png",
-        dpi=300
+        TOP10_DIR / "top10_education.png",
+        dpi=300,
+        bbox_inches="tight"
     )
 
     plt.show()
@@ -500,11 +565,24 @@ if {"Country","Physicians_per_thousand"}.issubset(df.columns):
     plt.tight_layout()
 
     plt.savefig(
-        FIGURES_PATH / "top10_physicians.png",
+        TOP10_DIR / "top10_physicians.png",
+        bbox_inches="tight",
         dpi=300
     )
 
     plt.show()
+
+print("\nINDICATEURS CLÉS POUR L'ATTRACTIVITÉ D'UN PAYS\n")
+
+top = (
+    corr["GDP_per_capita"]
+    .drop("GDP_per_capita")
+    .abs()
+    .sort_values(ascending=False)
+)
+
+for variable in top.index:
+    print(f"• {variable} ({corr.loc[variable,'GDP_per_capita']:.2f})")
 
 # ==========================================================
 # CONCLUSION MÉTIER
