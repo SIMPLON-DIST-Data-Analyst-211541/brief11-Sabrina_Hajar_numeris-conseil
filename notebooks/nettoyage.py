@@ -34,12 +34,57 @@ df_clean.columns = (
 # suppression colonne abréviation
 df_clean = df_clean.drop(columns=["abreviation"], errors="ignore")
 
+# correction des caractères mal encodés
+try:
+    df = pd.read_csv(input_path, encoding='utf-8')
+    print('Fichier lu en UTF-8')
+except UnicodeDecodeError:
+    df = pd.read_csv(input_path, encoding='latin1')
+    print('Fichier lu en Latin-1')
+
+# Détecter les valeurs corrompues
+import re
+
+motif = re.compile(r'�|\\x|\\u')
+
+print('\n===== VALEURS SUSPECTES =====')
+
+for col in df.select_dtypes(include='object').columns:
+    mask = df[col].astype(str).str.contains(motif, regex=True, na=False)
+    if mask.any():
+        print(f'\nColonne : {col}')
+        print(df.loc[mask, col].unique()[:10])
+              
+corrections = {
+    'Soutiens-gorge': 'Brasília',
+    'S����': 'São Paulo',
+    'Bogot': 'Bogotá',
+    'Reykjav': 'Reykjavík',
+    'Statos�������': 'Strovolos'
+}
+
+for col in ['capitale_grande_ville', 'plus grande ville']:
+    if col in df.columns:
+        df[col] = df[col].replace(corrections)
+
+print('Corrections appliquées.')
+
+# Supprimer les caractères illisibles restants
+# si certaines cellules contiennent encore :
+
+for col in df.select_dtypes(include='object').columns:
+    df[col] = df[col].str.replace('�', '', regex=False)
+
 # ==========================================================
 # 2. Suppression des espaces
 # ==========================================================
 
 for col in df_clean.select_dtypes(include="object").columns:
     df_clean[col] = df_clean[col].str.strip()
+
+cols = ['taux de natalité', 'cpi', 'taux de fécondité', 'prix de l’essence',
+        'espérance de vie', 'salaire minimum', 'médecins pour mille',
+        'taux de chômage', 'latitude', 'longitude']
 
 # ==========================================================
 # 3. Conversion des colonnes numériques
