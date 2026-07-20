@@ -4,8 +4,8 @@
 
 ### Étape 1
 
-- Choix du dataset
-- Choix de la problématique
+- Choix du dataset "Countries of the World 2023"
+- Choix de la problématique "
 
 ### Étape 2
 
