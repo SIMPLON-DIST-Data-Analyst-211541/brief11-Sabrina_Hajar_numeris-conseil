@@ -62,7 +62,12 @@ for col in df_clean.select_dtypes(include="object"):
 # ==========================================================
 
 corrections = {
+    # Pays
+    "S�����������": "São Tomé and Príncipe",
+
+    # Capitales
     "Bras���": "Brasília",
+    "Yaound�": "Yaoundé",
     "Bogot�": "Bogotá",
     "San Jos������": "San José",
     "Reykjav��": "Reykjavík",
@@ -71,12 +76,25 @@ corrections = {
     "Asunci��": "Asunción",
     "Lom�": "Lomé",
     "Nuku����": "Nukuʻalofa",
-    "S�����������": "São Tomé and Príncipe"
+
+    # Plus grandes villes
+    "S����": "São Paulo",
+    "S�����": "São Paulo",
+    "Z���": "Zürich",
+    "Statos�������": "Strovolos"
 }
 
-for col in ["capital_major_city", "largest_city", "country"]:
+for col in ["country", "capital_major_city", "largest_city"]:
     if col in df_clean.columns:
         df_clean[col] = df_clean[col].replace(corrections)
+
+# Vérification des caractères mal encodés restants
+print("\n===== CARACTÈRES MAL ENCODÉS RESTANTS =====")
+
+for col in ["country", "capital_major_city", "largest_city"]:
+    if col in df_clean.columns:
+        nb = df_clean[col].astype(str).str.contains("�", na=False).sum()
+        print(f"{col} : {nb}")
 
 # ==========================================================
 # 6. Vérification qu'il ne reste plus d'erreurs
@@ -87,7 +105,58 @@ print("\n===== VÉRIFICATION =====")
 for col in df_clean.select_dtypes(include="object"):
     nb = df_clean[col].astype(str).str.contains("�", na=False).sum()
     print(f"{col} : {nb}")
+# ==========================================================
+# 5. Correction des caractères mal encodés
+# ==========================================================
 
+# Capitales corrigées selon le pays
+capitales = {
+    "Brazil": "Brasília",
+    "Cameroon": "Yaoundé",
+    "Colombia": "Bogotá",
+    "Costa Rica": "San José",
+    "Iceland": "Reykjavík",
+    "Maldives": "Malé",
+    "Moldova": "Chișinău",
+    "Paraguay": "Asunción",
+    "Togo": "Lomé",
+    "Tonga": "Nukuʻalofa"
+}
+
+# Plus grandes villes corrigées selon le pays
+grandes_villes = {
+    "Brazil": "São Paulo",
+    "Colombia": "Bogotá",
+    "Costa Rica": "San José",
+    "Cyprus": "Strovolos",
+    "Iceland": "Reykjavík",
+    "Maldives": "Malé",
+    "Moldova": "Chișinău",
+    "Switzerland": "Zürich",
+    "Togo": "Lomé",
+    "Tonga": "Nukuʻalofa"
+}
+
+# Pays corrigé
+df_clean["country"] = df_clean["country"].replace({
+    "S�����������": "São Tomé and Príncipe"
+})
+
+# Correction des capitales
+for pays, capitale in capitales.items():
+    df_clean.loc[df_clean["country"] == pays, "capital_major_city"] = capitale
+
+# Correction des plus grandes villes
+for pays, ville in grandes_villes.items():
+    df_clean.loc[df_clean["country"] == pays, "largest_city"] = ville
+
+# Vérification
+print("\n===== CARACTÈRES MAL ENCODÉS RESTANTS =====")
+
+for col in ["country", "capital_major_city", "largest_city"]:
+    nb = df_clean[col].astype(str).str.contains("�", na=False).sum()
+    print(f"{col} : {nb}")
+    
 # ==========================================================
 # 7. Conversion des colonnes numériques
 # ==========================================================
