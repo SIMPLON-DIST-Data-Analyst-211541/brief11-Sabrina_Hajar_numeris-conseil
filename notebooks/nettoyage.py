@@ -31,66 +31,68 @@ df_clean.columns = (
     .str.strip("_")
 )
 
-# suppression colonne abréviation
-df_clean = df_clean.drop(columns=["abreviation"], errors="ignore")
+# ==========================================================
+# 2. Suppression de la colonne abbreviation
+# ==========================================================
 
-# correction des caractères mal encodés
-try:
-    df = pd.read_csv(input_path, encoding='utf-8')
-    print('Fichier lu en UTF-8')
-except UnicodeDecodeError:
-    df = pd.read_csv(input_path, encoding='latin1')
-    print('Fichier lu en Latin-1')
-
-# Détecter les valeurs corrompues
-import re
-
-motif = re.compile(r'�|\\x|\\u')
-
-print('\n===== VALEURS SUSPECTES =====')
-
-for col in df.select_dtypes(include='object').columns:
-    mask = df[col].astype(str).str.contains(motif, regex=True, na=False)
-    if mask.any():
-        print(f'\nColonne : {col}')
-        print(df.loc[mask, col].unique()[:10])
-              
-corrections = {
-    'Soutiens-gorge': 'Brasília',
-    'S����': 'São Paulo',
-    'Bogot': 'Bogotá',
-    'Reykjav': 'Reykjavík',
-    'Statos�������': 'Strovolos'
-}
-
-for col in ['capitale_grande_ville', 'plus grande ville']:
-    if col in df.columns:
-        df[col] = df[col].replace(corrections)
-
-print('Corrections appliquées.')
-
-# Supprimer les caractères illisibles restants
-# si certaines cellules contiennent encore :
-
-for col in df.select_dtypes(include='object').columns:
-    df[col] = df[col].str.replace('�', '', regex=False)
+df_clean = df_clean.drop(columns=["abbreviation"], errors="ignore")
 
 # ==========================================================
-# 2. Suppression des espaces
+# 3. Suppression des espaces
 # ==========================================================
 
 for col in df_clean.select_dtypes(include="object").columns:
     df_clean[col] = df_clean[col].str.strip()
 
-cols = ['taux de natalité', 'cpi', 'taux de fécondité', 'prix de l’essence',
-        'espérance de vie', 'salaire minimum', 'médecins pour mille',
-        'taux de chômage', 'latitude', 'longitude']
-
 # ==========================================================
-# 3. Conversion des colonnes numériques
+# 4. Détection des caractères mal encodés
 # ==========================================================
 
-for col in df_clean.select_dtypes(include="object").columns:
+print("\n===== CARACTÈRES MAL ENCODÉS =====")
+
+for col in df_clean.select_dtypes(include="object"):
+    erreurs = df_clean[df_clean[col].str.contains("�", na=False)]
+
+    if not erreurs.empty:
+        print(f"\nColonne : {col}")
+        print(erreurs[[col]])
+
+# ==========================================================
+# 5. Correction des caractères mal encodés
+# ==========================================================
+
+corrections = {
+    "Bras���": "Brasília",
+    "Bogot�": "Bogotá",
+    "San Jos������": "San José",
+    "Reykjav��": "Reykjavík",
+    "Mal�": "Malé",
+    "Chi����": "Chișinău",
+    "Asunci��": "Asunción",
+    "Lom�": "Lomé",
+    "Nuku����": "Nukuʻalofa",
+    "S�����������": "São Tomé and Príncipe"
+}
+
+for col in ["capital_major_city", "largest_city", "country"]:
+    if col in df_clean.columns:
+        df_clean[col] = df_clean[col].replace(corrections)
+
+# ==========================================================
+# 6. Vérification qu'il ne reste plus d'erreurs
+# ==========================================================
+
+print("\n===== VÉRIFICATION =====")
+
+for col in df_clean.select_dtypes(include="object"):
+    nb = df_clean[col].astype(str).str.contains("�", na=False).sum()
+    print(f"{col} : {nb}")
+
+# ==========================================================
+# 7. Conversion des colonnes numériques
+# ==========================================================
+
+for col in df_clean.select_dtypes(include="object"):
 
     temp = (
         df_clean[col]
@@ -101,13 +103,27 @@ for col in df_clean.select_dtypes(include="object").columns:
 
     numeric = pd.to_numeric(temp, errors="coerce")
 
-    # Conversion uniquement si la majorité des valeurs est numérique
     if numeric.notna().sum() >= len(df_clean) * 0.5:
         df_clean[col] = numeric
 
 # ==========================================================
-# 4. Remplacement des valeurs manquantes
+# 8. Valeurs manquantes
 # ==========================================================
+
+print("\nValeurs manquantes :")
+print(df_clean.isna().sum())
+
+print("\nLignes contenant des valeurs manquantes :")
+print(df_clean[df_clean.isna().any(axis=1)])
+
+colonnes = [
+    "currency_code",
+    "official_language",
+    "capital_major_city",
+    "largest_city"
+]
+
+df_clean[colonnes] = df_clean[colonnes].fillna("Unknown")
 
 numeric_cols = df_clean.select_dtypes(include="number").columns
 
@@ -117,22 +133,28 @@ df_clean[numeric_cols] = (
 )
 
 # ==========================================================
-# 5. Vérifications
+# 9. Vérification des doublons
 # ==========================================================
 
-print(df_clean.info())
-
-print("\nValeurs manquantes :")
-print(df_clean.isna().sum())
-
-print("\nDimensions :", df_clean.shape)
+print("\nNombre de doublons :", df_clean.duplicated().sum())
 
 # ==========================================================
-# 6. Sauvegarde
+# 10. Recherche des valeurs aberrantes (IQR)
 # ==========================================================
 
-output_path = BASE_DIR / "data" / "world-data-2023-clean.csv"
+print("\n===== VALEURS ABERRANTES =====")
 
-df_clean.to_csv(output_path, index=False)
+colonnes_num = df_clean.select_dtypes(include="number").columns
 
-print("\nFichier enregistré :", output_path)
+for col in colonnes_num:
+
+    Q1 = df_clean[col].quantile(0.25)
+    Q3 = df_clean[col].quantile(0.75)
+    IQR = Q3 - Q1
+
+    borne_inf = Q1 - 1.5 * IQR
+    borne_sup = Q3 + 1.5 * IQR
+
+    nb = ((df_clean[col] < borne_inf) | (df_clean[col] > borne_sup)).sum()
+
+    print(f"{col} : {nb} valeur(s) aberrante(s)")
