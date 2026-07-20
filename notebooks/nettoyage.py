@@ -61,40 +61,84 @@ for col in df_clean.select_dtypes(include="object"):
 # 5. Correction des caractères mal encodés
 # ==========================================================
 
+# Corriger le nom du pays avant le reste
+mask = df_clean["country"].astype(str).str.contains("�", na=False)
+df_clean.loc[mask, "country"] = "São Tomé and Príncipe"
+
+# Corrections par pays
 corrections = {
-    # Pays
-    "S�����������": "São Tomé and Príncipe",
-
-    # Capitales
-    "Bras���": "Brasília",
-    "Yaound�": "Yaoundé",
-    "Bogot�": "Bogotá",
-    "San Jos������": "San José",
-    "Reykjav��": "Reykjavík",
-    "Mal�": "Malé",
-    "Chi����": "Chișinău",
-    "Asunci��": "Asunción",
-    "Lom�": "Lomé",
-    "Nuku����": "Nukuʻalofa",
-
-    # Plus grandes villes
-    "S����": "São Paulo",
-    "S�����": "São Paulo",
-    "Z���": "Zürich",
-    "Statos�������": "Strovolos"
+    "Brazil": {
+        "capital_major_city": "Brasília",
+        "largest_city": "São Paulo"
+    },
+    "Cameroon": {
+        "capital_major_city": "Yaoundé"
+    },
+    "Colombia": {
+        "capital_major_city": "Bogotá",
+        "largest_city": "Bogotá"
+    },
+    "Costa Rica": {
+        "capital_major_city": "San José",
+        "largest_city": "San José"
+    },
+    "Cyprus": {
+        "largest_city": "Strovolos"
+    },
+    "Iceland": {
+        "capital_major_city": "Reykjavík",
+        "largest_city": "Reykjavík"
+    },
+    "Maldives": {
+        "capital_major_city": "Malé",
+        "largest_city": "Malé"
+    },
+    "Moldova": {
+        "capital_major_city": "Chișinău",
+        "largest_city": "Chișinău"
+    },
+    "Paraguay": {
+        "capital_major_city": "Asunción"
+    },
+    "São Tomé and Príncipe": {
+        "capital_major_city": "São Tomé",
+        "largest_city": "São Tomé"
+    },
+    "Sweden": {
+        "largest_city": "Stockholm"
+    },
+    "Switzerland": {
+        "largest_city": "Zürich"
+    },
+    "Togo": {
+        "capital_major_city": "Lomé",
+        "largest_city": "Lomé"
+    },
+    "Tonga": {
+        "capital_major_city": "Nukuʻalofa",
+        "largest_city": "Nukuʻalofa"
+    }
 }
 
-for col in ["country", "capital_major_city", "largest_city"]:
-    if col in df_clean.columns:
-        df_clean[col] = df_clean[col].replace(corrections)
+for pays, valeurs in corrections.items():
+    for colonne, valeur in valeurs.items():
+        if colonne in df_clean.columns:
+            df_clean.loc[df_clean["country"] == pays, colonne] = valeur
 
-# Vérification des caractères mal encodés restants
+# Vérification
 print("\n===== CARACTÈRES MAL ENCODÉS RESTANTS =====")
 
+reste = 0
+
 for col in ["country", "capital_major_city", "largest_city"]:
-    if col in df_clean.columns:
-        nb = df_clean[col].astype(str).str.contains("�", na=False).sum()
-        print(f"{col} : {nb}")
+    nb = df_clean[col].astype(str).str.contains("�", na=False).sum()
+    print(f"{col} : {nb}")
+    reste += nb
+
+if reste == 0:
+    print("\n✅ Tous les caractères mal encodés ont été corrigés.")
+else:
+    print(f"\n⚠️ Il reste {reste} valeur(s) à corriger.")
 
 # ==========================================================
 # 6. Vérification qu'il ne reste plus d'erreurs
@@ -156,7 +200,7 @@ print("\n===== CARACTÈRES MAL ENCODÉS RESTANTS =====")
 for col in ["country", "capital_major_city", "largest_city"]:
     nb = df_clean[col].astype(str).str.contains("�", na=False).sum()
     print(f"{col} : {nb}")
-    
+
 # ==========================================================
 # 7. Conversion des colonnes numériques
 # ==========================================================
@@ -227,3 +271,17 @@ for col in colonnes_num:
     nb = ((df_clean[col] < borne_inf) | (df_clean[col] > borne_sup)).sum()
 
     print(f"{col} : {nb} valeur(s) aberrante(s)")
+
+# ==========================================================
+# 11. Export du Dataframe nettoyé
+# ==========================================================
+
+# ==========================================================
+# 6. Sauvegarde
+# ==========================================================
+
+output_path = BASE_DIR / "data" / "world-data-2023-clean.csv"
+
+df_clean.to_csv(output_path, index=False, encoding="utf-8-sig")
+
+print("\nFichier nettoyé enregistré :", output_path)
