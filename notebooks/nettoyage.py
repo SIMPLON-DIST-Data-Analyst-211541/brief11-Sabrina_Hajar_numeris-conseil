@@ -31,6 +31,9 @@ df_clean.columns = (
     .str.strip("_")
 )
 
+# suppression colonne abréviation
+df_clean = df_clean.drop(columns=["abreviation"], errors="ignore")
+
 # ==========================================================
 # 2. Suppression des espaces
 # ==========================================================
